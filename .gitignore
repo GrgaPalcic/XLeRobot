@@ -94,6 +94,7 @@ lerna-debug.log*
 .happypack/
 
 # Project-specific generated data
+.xlerobot/
 simulation/**/video_test_output*/
 simulation/**/test_output*.log
 software/**/test_output*.log

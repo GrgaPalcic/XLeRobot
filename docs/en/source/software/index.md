@@ -15,6 +15,7 @@ If you haven't played with lerobot SO101 Arm before, it's recommended to test si
 1. **Choose Control Method**: Joint control (example 0) for basic motor testing, end-effector control for teleop (example 1 & 6)
 2. **Advanced Features**: Try dual-arm control (example 2) or vision-based control (example 3) for more complex tasks
 3. **Full System**: Use keyboard (example 4), Xbox controller (example 5), or Switch Joycon (example 7) for complete XLeRobot teleop
+4. **No-wheels dual-arm stack**: Use a DualSense controller with the two calibrated SO100/SO101 follower arms only. This path intentionally avoids the wheel/base motors required by the full `XLerobot` class.
 
 All example scripts are located in the [`software/examples/`](https://github.com/Vector-Wangel/XLeRobot/tree/main/software/examples) directory and can be run directly after proper setup and calibration. Some examples needs additional calibration to ensure performance.
 
@@ -25,6 +26,8 @@ For basic version of XLeRobot, you don't need a RaspberryPi. Just use your lapto
 ### [SO100/SO101 Arm Examples](getting_started/SO101.md)
 
 ### [XLeRobot Teleop](getting_started/XLeRobot_teleop.md)
+
+### [DualSense Dual-Arm Teleop](getting_started/DualSense_dual_arm.md)
 
 ### [Autonomous LLM Agent](getting_started/LLM_agent.md)
 
@@ -47,6 +50,7 @@ The VLA tutorials below came from different teams in the community. Thanks a lot
 getting_started/install
 getting_started/SO101
 getting_started/XLeRobot_teleop
+getting_started/DualSense_dual_arm
 getting_started/LLM_agent
 getting_started/VLA_ACT
 getting_started/VLA_smol

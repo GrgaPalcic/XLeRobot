@@ -16,6 +16,10 @@ Complete system control including dual arms, mobile base, and head motors. Run [
 
 Intuitive gamepad control for the full XLeRobot system. Run [5_xlerobot_teleop_xbox.py](https://github.com/Vector-Wangel/XLeRobot/blob/main/software/examples/5_xlerobot_teleop_xbox.py) for Xbox controller-based teleoperation with ergonomic stick and trigger mappings for natural human-robot interaction.
 
+### DualSense Dual-Arm Teleop
+
+This fork adds a DualSense path for the no-wheels dual-arm SO101 stack. It uses the two SO follower arms directly and does not instantiate the full `XLerobot` class, because the full robot class expects wheel motors on the second bus. See [DualSense Dual-Arm Teleop](DualSense_dual_arm.md).
+
 
 <video width="100%" controls>
   <source src="https://vector-wangel.github.io/XLeRobot-assets/videos/Real_demos/xlerobot_025_001.mp4" type="video/mp4">
@@ -39,4 +43,4 @@ Intuitive gamepad control for the full XLeRobot system. Run [5_xlerobot_teleop_x
 
 ### VR Teleop
 
-You can try [controlling XLeRobot with VR in simulation](https://xlerobot.readthedocs.io/en/latest/simulation/getting_started/vr_sim.html) first. The offical code for VR teleop the real robot is coming soon. 
+You can try [controlling XLeRobot with VR in simulation](https://xlerobot.readthedocs.io/en/latest/simulation/getting_started/vr_sim.html) first. The offical code for VR teleop the real robot is coming soon.
