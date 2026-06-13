@@ -449,12 +449,17 @@ def main() -> None:
             time.sleep(period)
     except KeyboardInterrupt:
         print("Interrupted, disconnecting.")
+    except (ConnectionError, RuntimeError) as exc:
+        print(f"Robot communication error, disconnecting: {exc}")
     finally:
         controller.disconnect()
         for name in ("left_robot", "right_robot"):
             robot = locals().get(name)
             if robot is not None and getattr(robot, "is_connected", False):
-                robot.disconnect()
+                try:
+                    robot.disconnect()
+                except Exception as exc:  # noqa: BLE001 - best-effort cleanup after hardware faults.
+                    print(f"Warning: failed to disconnect {name}: {exc}")
 
 
 if __name__ == "__main__":
