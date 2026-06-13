@@ -92,20 +92,23 @@ The script fails before connecting to motors if the calibration files for the se
 By default it calls LeRobot with `calibrate=False`, so it uses the existing calibration files and does not start an interactive calibration flow.
 Only pass `--write-calibration-if-needed` if LeRobot reports that calibration must be written back to the motors.
 On connect, the controller captures the observed joint positions as the software home pose and prints those values.
-The script clamps each command to 2 degrees per joint before sending it; change that with `--max-command-step`, or pass `--max-command-step 0` to disable it.
+The script clamps each command to 3 degrees per joint before sending it; change that with `--max-command-step`, or pass `--max-command-step 0` to disable it.
 The actual run has no time limit; stop with `Ctrl-C`, which disconnects both arms.
 
 ## Controls
 
-- Left stick: left arm x/y end-effector control.
-- Right stick: right arm x/y end-effector control.
-- L1 + left stick: left wrist flex and wrist roll.
-- R1 + right stick: right wrist flex and wrist roll.
+- Left stick: left shoulder pan and shoulder lift.
+- Right stick: right shoulder pan and shoulder lift.
+- L1 + left stick: left elbow flex and wrist flex.
+- R1 + right stick: right elbow flex and wrist flex.
+- L1 + R1 + left or right stick left/right: wrist roll for that arm.
 - L2: close left gripper; L1 + L2 opens it.
 - R2: close right gripper; R1 + R2 opens it.
 - Mapped reset button: return both software targets to the captured home pose.
 
 Neutral sticks and released triggers hold the current observed joint positions, so releasing the controller stops issuing further movement.
+
+The first implementation tried the upstream Xbox-style Cartesian x/y control. On this machine the already-calibrated arms start near the edge of that simple 2D IK model, so the result was small wiggles and confusing persistent target chasing. The default control surface is now direct joint jog because it is easier to understand and easier to stop.
 
 No D-pad/base input is mapped, and the script never emits `x.vel`, `y.vel`, or `theta.vel`.
 

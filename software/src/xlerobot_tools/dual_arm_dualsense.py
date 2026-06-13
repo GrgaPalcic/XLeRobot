@@ -67,8 +67,8 @@ def forward_kinematics(joint2_deg: float, joint3_deg: float, l1: float = 0.1159,
 class ArmController:
     name: str
     xy_step: float = 0.004
-    degree_step: float = 1.0
-    gripper_step: float = 3.0
+    degree_step: float = 3.0
+    gripper_step: float = 5.0
     gripper_open: float = 90.0
     gripper_closed: float = 2.0
     current_x: float = 0.1629
@@ -110,6 +110,7 @@ class ArmController:
                 + self.targets["elbow_flex"]
             )
             self.home_pitch = self.pitch
+
     def sync_targets_to_observation(self, obs: dict[str, Any]) -> None:
         for joint in JOINTS:
             key = f"{joint}.pos"
@@ -164,26 +165,21 @@ class ArmController:
         stick_x: float,
         stick_y: float,
         modifier: bool,
+        roll_modifier: bool,
         trigger: float,
     ) -> None:
         self.sync_targets_to_observation(obs)
 
-        if modifier:
-            if abs(stick_x) > 0.0 or abs(stick_y) > 0.0:
-                self.targets["wrist_flex"] += -stick_y * self.degree_step
+        if modifier and roll_modifier:
+            if abs(stick_x) > 0.0:
                 self.targets["wrist_roll"] += stick_x * self.degree_step
+        elif modifier:
+            if abs(stick_x) > 0.0 or abs(stick_y) > 0.0:
+                self.targets["elbow_flex"] += -stick_y * self.degree_step
+                self.targets["wrist_flex"] += stick_x * self.degree_step
         elif abs(stick_x) > 0.0 or abs(stick_y) > 0.0:
-            self.current_x += -stick_y * self.xy_step
-            self.current_y += stick_x * self.xy_step
-            joint2, joint3 = inverse_kinematics(self.current_x, self.current_y)
-            current_pitch = (
-                float(obs["wrist_flex.pos"])
-                + float(obs["shoulder_lift.pos"])
-                + float(obs["elbow_flex.pos"])
-            )
-            self.targets["shoulder_lift"] = joint2
-            self.targets["elbow_flex"] = joint3
-            self.targets["wrist_flex"] = -joint2 - joint3 + current_pitch
+            self.targets["shoulder_pan"] += stick_x * self.degree_step
+            self.targets["shoulder_lift"] += -stick_y * self.degree_step
 
         if trigger > 0.0:
             direction = 1.0 if modifier else -1.0
@@ -264,15 +260,20 @@ def describe_controls(mapping: dict[str, Any]) -> str:
     return "\n".join(
         [
             "Controls:",
-            f"  left arm xy: left stick axes {axis('left_x')}/{axis('left_y')}",
-            f"  right arm xy: right stick axes {axis('right_x')}/{axis('right_y')}",
-            f"  left wrist: hold L1 button {button('l1')} + left stick",
-            f"  right wrist: hold R1 button {button('r1')} + right stick",
+            f"  left shoulder pan/lift: left stick axes {axis('left_x')}/{axis('left_y')}",
+            f"  right shoulder pan/lift: right stick axes {axis('right_x')}/{axis('right_y')}",
+            f"  left elbow/wrist flex: hold L1 button {button('l1')} + left stick up/down/left/right",
+            f"  right elbow/wrist flex: hold R1 button {button('r1')} + right stick up/down/left/right",
+            f"  wrist roll: hold L1+R1 + left or right stick left/right",
             f"  left gripper: L2 axis {axis('l2')} closes, L1+L2 opens, release holds",
             f"  right gripper: R2 axis {axis('r2')} closes, R1+R2 opens, release holds",
             f"  reset to captured home: button {button('reset')}",
         ]
     )
+
+
+def targets_as_observation(arm: ArmController) -> dict[str, float]:
+    return {f"{joint}.pos": arm.targets[joint] for joint in JOINTS}
 
 
 def run_dry_loop(
@@ -290,18 +291,37 @@ def run_dry_loop(
             print(f"Finished bounded dry-run after {duration_s:.1f}s.")
             return
         snapshot = controller.snapshot()
-        left_arm.apply_input(snapshot["left_x"], snapshot["left_y"], snapshot["l1"], snapshot["l2"])
-        right_arm.apply_input(snapshot["right_x"], snapshot["right_y"], snapshot["r1"], snapshot["r2"])
         if snapshot["reset"]:
             left_arm.reset()
             right_arm.reset()
+        else:
+            left_arm.apply_live_input(
+                targets_as_observation(left_arm),
+                snapshot["left_x"],
+                snapshot["left_y"],
+                snapshot["l1"],
+                snapshot["r1"],
+                snapshot["l2"],
+            )
+            right_arm.apply_live_input(
+                targets_as_observation(right_arm),
+                snapshot["right_x"],
+                snapshot["right_y"],
+                snapshot["r1"],
+                snapshot["l1"],
+                snapshot["r2"],
+            )
 
         now = time.monotonic()
         if now - last_print > 0.25:
             print(
                 "dry-run "
-                f"left_xy=({left_arm.current_x:.3f},{left_arm.current_y:.3f}) "
-                f"right_xy=({right_arm.current_x:.3f},{right_arm.current_y:.3f}) "
+                f"left_pan={left_arm.targets['shoulder_pan']:.1f} "
+                f"left_lift={left_arm.targets['shoulder_lift']:.1f} "
+                f"left_elbow={left_arm.targets['elbow_flex']:.1f} "
+                f"right_pan={right_arm.targets['shoulder_pan']:.1f} "
+                f"right_lift={right_arm.targets['shoulder_lift']:.1f} "
+                f"right_elbow={right_arm.targets['elbow_flex']:.1f} "
                 f"left_grip={left_arm.targets['gripper']:.1f} "
                 f"right_grip={right_arm.targets['gripper']:.1f} "
                 f"reset={snapshot['reset']}"
@@ -320,16 +340,16 @@ def main() -> None:
     parser.add_argument("--left-id", default=DEFAULT_LEFT_ID)
     parser.add_argument("--right-id", default=DEFAULT_RIGHT_ID)
     parser.add_argument("--calibration-dir", type=Path, default=DEFAULT_CALIBRATION_DIR)
-    parser.add_argument("--control-hz", type=float, default=50.0)
-    parser.add_argument("--kp", type=float, default=0.5)
+    parser.add_argument("--control-hz", type=float, default=30.0)
+    parser.add_argument("--kp", type=float, default=1.0)
     parser.add_argument(
         "--max-command-step",
         type=float,
-        default=2.0,
+        default=3.0,
         help="Maximum per-command joint delta in degrees before sending. Use 0 to disable the cap.",
     )
     parser.add_argument("--xy-step", type=float, default=0.004)
-    parser.add_argument("--degree-step", type=float, default=1.0)
+    parser.add_argument("--degree-step", type=float, default=3.0)
     parser.add_argument("--gripper-open", type=float, default=90.0)
     parser.add_argument("--gripper-closed", type=float, default=2.0)
     parser.add_argument("--dry-run", action="store_true", help="Read the controller but do not connect to robot arms.")
@@ -408,8 +428,22 @@ def main() -> None:
             else:
                 left_obs = left_robot.get_observation()
                 right_obs = right_robot.get_observation()
-                left_arm.apply_live_input(left_obs, snapshot["left_x"], snapshot["left_y"], snapshot["l1"], snapshot["l2"])
-                right_arm.apply_live_input(right_obs, snapshot["right_x"], snapshot["right_y"], snapshot["r1"], snapshot["r2"])
+                left_arm.apply_live_input(
+                    left_obs,
+                    snapshot["left_x"],
+                    snapshot["left_y"],
+                    snapshot["l1"],
+                    snapshot["r1"],
+                    snapshot["l2"],
+                )
+                right_arm.apply_live_input(
+                    right_obs,
+                    snapshot["right_x"],
+                    snapshot["right_y"],
+                    snapshot["r1"],
+                    snapshot["l1"],
+                    snapshot["r2"],
+                )
             left_robot.send_action(left_arm.action(left_obs, args.kp, max_command_step))
             right_robot.send_action(right_arm.action(right_obs, args.kp, max_command_step))
             time.sleep(period)
